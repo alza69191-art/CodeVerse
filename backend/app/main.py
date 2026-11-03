@@ -1,10 +1,13 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import Base, engine
 from . import models  # noqa: F401 - registers SQLAlchemy models
-from .routers import auth, git_http, repositories, tokens
+from .routers import auth, collaboration, git_http, repositories, tokens
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -12,12 +15,22 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     yield
 
-app = FastAPI(title=settings.app_name, version="0.2.0", lifespan=lifespan)\napp.add_middleware(\n    CORSMiddleware,\n    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],\n    allow_credentials=False,\n    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],\n    allow_headers=["Authorization", "Content-Type", "Git-Protocol"],\n)
+
+app = FastAPI(title=settings.app_name, version="0.3.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Git-Protocol"],
+)
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tokens.router, prefix="/api/v1")
 app.include_router(repositories.router, prefix="/api/v1")
+app.include_router(collaboration.router, prefix="/api/v1")
 app.include_router(git_http.router)
+
 
 @app.get("/health", tags=["System"])
 def health():
-    return {"status": "ok", "service": "codeverse-api", "version": "0.2.0"}
+    return {"status": "ok", "service": "codeverse-api", "version": "0.3.0"}

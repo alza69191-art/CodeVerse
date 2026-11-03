@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..dependencies import get_current_user
 from ..models import Repository, RepositoryMember, User
-from ..schemas import MemberInvite
+from ..schemas import MemberInvite, MemberRoleUpdate
 
 router = APIRouter(tags=["Repository Members"])
 

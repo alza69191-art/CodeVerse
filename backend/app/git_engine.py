@@ -103,7 +103,7 @@ def _validate_file_path(file_path: str) -> str:
     if not file_path or "\x00" in file_path or "\\" in file_path or file_path.startswith("/"):
         raise HTTPException(status_code=400, detail="Invalid file path")
     parts = file_path.split("/")
-    if any(part in {"", ".", ".."} for part in parts) or len(file_path.encode("utf-8")) > 1000:
+    if any(part in {"", ".", ".."} or part.lower() == ".git" for part in parts) or len(file_path.encode("utf-8")) > 1000:
         raise HTTPException(status_code=400, detail="Invalid file path")
     return str(PurePosixPath(file_path))
 
@@ -139,10 +139,15 @@ def save_file(repo: Repository, branch: str, file_path: str, content: str, messa
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         raise HTTPException(status_code=400, detail="Invalid branch name")
     ref = "refs/heads/" + branch
-    current = subprocess.run(["git", "--git-dir", str(path), "rev-parse", "--verify", "--quiet", ref], capture_output=True, text=True, timeout=10, env=env)
+    try:
+        current = subprocess.run(["git", "--git-dir", str(path), "rev-parse", "--verify", "--quiet", ref], capture_output=True, text=True, timeout=10, env=env)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Git operation timed out")
     if current.returncode not in (0, 1):
         raise HTTPException(status_code=500, detail="Could not resolve target branch")
     old_commit = current.stdout.strip() if current.returncode == 0 else None
+    if old_commit is None and branch != repo.default_branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
     fd, index_path = tempfile.mkstemp(prefix="codeverse-index-")
     os.close(fd)
     os.unlink(index_path)

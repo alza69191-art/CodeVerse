@@ -69,9 +69,9 @@ def list_files(repo: Repository, ref: str = "HEAD") -> list[dict]:
     path = repository_path(repo)
     if not path.is_dir():
         raise HTTPException(status_code=404, detail="Git repository storage not found")
-    _git(path, "rev-parse", "--verify", "--end-of-options", ref + "^{commit}")
-    output = _git(path, "ls-tree", "-r", "-z", "--name-only", ref)
-    return [{"path": item, "type": "file"} for item in output.split("\\0") if item]
+    commit = _git(path, "rev-parse", "--verify", "--end-of-options", ref + "^{commit}").strip()
+    output = _git(path, "ls-tree", "-r", "-z", "--name-only", commit)
+    return [{"path": item, "type": "file"} for item in output.split("\0") if item]
 
 def read_file(repo: Repository, file_path: str, ref: str = "HEAD") -> dict:
     import posixpath

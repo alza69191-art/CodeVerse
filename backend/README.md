@@ -67,3 +67,11 @@ Repository owners can invite existing CodeVerse accounts by username. Invitees s
 - `POST /api/v1/invitations/{invitation_id}/decline`
 
 Active `read` members can inspect repository files, branches, commits, issues, and pull requests. Active `write` members can also create branches, save/upload files, create and comment on issues, close issues, and open/close pull requests. Only the owner can invite, change roles, or remove members. Invitations are for existing registered usernames; email delivery is not configured.
+
+
+## Pull request review and merge
+
+- `GET /api/v1/repositories/{id}/pull-requests/{pull_request_id}/diff` returns a branch diff and stat summary. The text patch is capped at 250 KB.
+- `POST /api/v1/repositories/{id}/pull-requests/{pull_request_id}/merge` attempts a non-fast-forward merge into the base branch. Git computes the merge tree first; if conflicts are detected, the API returns HTTP 409 and does not update the target branch. On success, a two-parent merge commit is created and the pull request state becomes `merged`.
+
+The merge implementation uses `git merge-tree --write-tree` and therefore requires a Git version supporting that option (Git 2.38 or newer). Git ref update uses compare-and-swap to avoid overwriting a base branch that changed during the operation. Merge metadata is stored in a separate `pull_request_merges` table so existing pull request table schemas do not need an added column. Note that Git ref update and SQL transaction are not a distributed atomic transaction; production deployments should add reconciliation/audit handling for failures between those operations.

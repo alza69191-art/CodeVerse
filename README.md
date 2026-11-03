@@ -1,27 +1,31 @@
 # CodeVerse
 
-A developer workspace combining Git repositories, browser-based editing, AI-assisted development, API provider routing, project previews and one-click deployment.
+منصة تطوير برمجيات عربية/إنجليزية تتضمن حسابات المستخدمين، مستودعات Git، محرر ملفات عبر المتصفح، الفروع، سجل التعديلات، Issues، Pull Requests، والفرق.
 
-## Current status
+## البنية الحالية
 
-Initial UI scaffold. The browser interface is not yet connected to a production backend. **Do not enter real API keys until the secure backend and authentication are deployed.**
+- Frontend: HTML / CSS / JavaScript.
+- Backend: FastAPI + SQLAlchemy.
+- Database: SQLite للتطوير، وPostgreSQL للاستضافة.
+- Git storage: مستودعات Git bare على القرص.
+- CI: فحص استيراد Python وصياغة JavaScript عبر GitHub Actions.
 
-## Planned architecture
+## النشر
 
-- Frontend: Next.js + TypeScript + Tailwind CSS + Monaco Editor.
-- API: FastAPI; all provider calls are proxied server-side.
-- Database/auth: PostgreSQL + Supabase Auth (or equivalent).
-- Secrets: encrypted server-side secret storage; never commit secrets or expose them to browser JavaScript.
-- Deployment: Vercel for frontend, a protected backend host for API, custom domains via DNS.
+يوجد Dockerfile في جذر المستودع لتشغيل FastAPI على Railway. يتطلب النشر الإنتاجي:
+- خدمة PostgreSQL وربط متغير `DATABASE_URL`.
+- متغير `JWT_SECRET_KEY` قوي وسري.
+- Volume دائم مركّب على `/data` لحفظ مستودعات Git.
+- `APP_ENV=production` و `CORS_ORIGINS` مضبوطين على نطاق الواجهة.
 
-## Security rules
+راجع [دليل النشر على Railway](DEPLOY_RAILWAY.md) للتعليمات خطوة بخطوة.
 
-1. Never put provider keys in frontend code, localStorage, sessionStorage, URLs, or Git history.
-2. Store only encrypted secrets on the server; show masked values in the admin UI.
-3. Enforce admin authorization server-side on every key/provider endpoint.
-4. Use environment variables for encryption keys and service credentials.
-5. Rotate any key that was accidentally exposed.
+## الحالة والقيود
 
-## Development
+الكود يتضمن وظائف API لإدارة الحسابات والمستودعات والفروع والملفات والتعاون وطلبات الدمج. نجاح CI لا يعني أن التطبيق منشور أو أن جميع السيناريوهات اختُبرت على خادم حي. يجب إجراء اختبار تكاملي بعد النشر قبل فتح التسجيل العام.
 
-The initial landing page is static. Backend integration, login, repository operations, provider adapters, billing, and deployment workflows are subsequent milestones.
+## الأمان
+
+- لا تضع كلمات المرور أو مفاتيح JWT أو بيانات اتصال قاعدة البيانات في GitHub.
+- استخدم متغيرات البيئة في منصة الاستضافة.
+- لا تفتح التسجيل العام قبل مراجعة إعدادات الأمان والنسخ الاحتياطي وحدود الاستخدام.

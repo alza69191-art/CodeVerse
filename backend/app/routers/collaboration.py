@@ -13,9 +13,32 @@ router = APIRouter(prefix="/repositories/{repository_id}", tags=["Collaboration"
 
 def owned_repo(repository_id: int, db: Session, user: User) -> Repository:
     repo = db.get(Repository, repository_id)
-    if repo is None or repo.owner_id != user.id:
+    if repo is None:
         raise HTTPException(status_code=404, detail="Repository not found")
+    if repo.owner_id != user.id:
+        member = db.scalar(select(RepositoryMember).where(
+            RepositoryMember.repository_id == repository_id,
+            RepositoryMember.user_id == user.id,
+            RepositoryMember.status == "active",
+        ))
+        if member is None:
+            raise HTTPException(status_code=404, detail="Repository not found")
     return repo
+
+
+def require_collab_write(repository_id: int, db: Session, user: User) -> None:
+    repo = db.get(Repository, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    if repo.owner_id == user.id:
+        return
+    member = db.scalar(select(RepositoryMember).where(
+        RepositoryMember.repository_id == repository_id,
+        RepositoryMember.user_id == user.id,
+        RepositoryMember.status == "active",
+    ))
+    if member is None or member.role not in ("write", "admin"):
+        raise HTTPException(status_code=403, detail="Write access is required")
 
 
 def issue_or_404(issue_id: int, repository_id: int, db: Session) -> Issue:
@@ -34,6 +57,7 @@ def list_issues(repository_id: int, db: Session = Depends(get_db), user: User = 
 @router.post("/issues", status_code=status.HTTP_201_CREATED)
 def create_issue(repository_id: int, payload: IssueCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     owned_repo(repository_id, db, user)
+    require_collab_write(repository_id, db, user)
     issue = Issue(repository_id=repository_id, author_id=user.id, title=payload.title, body=payload.body)
     db.add(issue)
     db.commit()
@@ -52,6 +76,7 @@ def get_issue(repository_id: int, issue_id: int, db: Session = Depends(get_db), 
 @router.post("/issues/{issue_id}/comments", status_code=status.HTTP_201_CREATED)
 def add_issue_comment(repository_id: int, issue_id: int, payload: IssueCommentCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     owned_repo(repository_id, db, user)
+    require_collab_write(repository_id, db, user)
     issue = issue_or_404(issue_id, repository_id, db)
     if issue.state != "open":
         raise HTTPException(status_code=409, detail="Cannot comment on a closed issue")
@@ -65,6 +90,7 @@ def add_issue_comment(repository_id: int, issue_id: int, payload: IssueCommentCr
 @router.post("/issues/{issue_id}/close")
 def close_issue(repository_id: int, issue_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     owned_repo(repository_id, db, user)
+    require_collab_write(repository_id, db, user)
     issue = issue_or_404(issue_id, repository_id, db)
     issue.state = "closed"
     db.commit()
@@ -81,6 +107,7 @@ def list_pull_requests(repository_id: int, db: Session = Depends(get_db), user: 
 @router.post("/pull-requests", status_code=status.HTTP_201_CREATED)
 def create_pull_request(repository_id: int, payload: PullRequestCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     repo = owned_repo(repository_id, db, user)
+    require_collab_write(repository_id, db, user)
     if payload.head_branch == payload.base_branch:
         raise HTTPException(status_code=400, detail="Head and base branches must be different")
     branches = set(list_branches(repo))
@@ -96,6 +123,7 @@ def create_pull_request(repository_id: int, payload: PullRequestCreate, db: Sess
 @router.post("/pull-requests/{pull_request_id}/close")
 def close_pull_request(repository_id: int, pull_request_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     owned_repo(repository_id, db, user)
+    require_collab_write(repository_id, db, user)
     pr = db.get(PullRequest, pull_request_id)
     if pr is None or pr.repository_id != repository_id:
         raise HTTPException(status_code=404, detail="Pull request not found")

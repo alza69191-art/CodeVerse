@@ -40,7 +40,7 @@ This is an early development foundation, not production-ready. Use HTTPS, persis
 
 ## Collaboration: Issues and Pull Requests
 
-All collaboration routes currently require an authenticated repository owner. This first version is owner-only; team membership and collaborator permissions are not implemented.
+Repository read and collaboration routes allow the owner and active members. Write operations require an active `write` member or the owner. Only the owner can manage invitations and member roles.
 
 - `GET /api/v1/repositories/{id}/issues`
 - `POST /api/v1/repositories/{id}/issues` with `title` and optional `body`
@@ -51,7 +51,7 @@ All collaboration routes currently require an authenticated repository owner. Th
 - `POST /api/v1/repositories/{id}/pull-requests` with `title`, `body`, `head_branch`, and `base_branch`
 - `POST /api/v1/repositories/{id}/pull-requests/{pull_request_id}/close`
 
-Pull Requests validate that both branches exist and are different. They are tracking records only: diff review, approvals, merge execution, conflict resolution, and branch protection are not implemented. New SQLAlchemy tables are created at application startup for fresh or existing databases; use Alembic migrations for production schema evolution.
+Pull Requests validate that both branches exist and are different. Diff review and conflict-aware merge execution are available. Approvals, branch protection, and merge queue are not implemented. New SQLAlchemy tables are created at application startup for fresh or existing databases; use Alembic migrations for production schema evolution.
 
 
 ## Repository teams and invitations

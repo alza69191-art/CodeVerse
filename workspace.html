@@ -1,22 +1,7 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0b1020"><title>CodeVerse Workspace</title>
-<link rel="stylesheet" href="workspace.css">
-</head>
-<body>
-<header class="bar"><a class="brand" href="index.html"><b>CV</b> CodeVerse</a><span>مساحة العمل</span><div><input id="apiBase" value="http://127.0.0.1:8000" aria-label="API URL"><button id="saveApi">حفظ الخادم</button></div></header>
-<main>
-<section class="auth panel"><div><h1>الاتصال بحسابك</h1><p>سجّل الدخول إلى خادم CodeVerse لعرض مستودعاتك.</p></div><form id="loginForm"><input id="email" type="email" placeholder="البريد الإلكتروني" required><input id="password" type="password" placeholder="كلمة المرور" required><button>تسجيل الدخول</button><button type="button" class="secondary" id="logout">تسجيل الخروج</button></form></section>
-<section class="repo-area">
-<aside class="panel sidebar"><div class="side-head"><h2>مستودعاتي</h2><button id="loadRepos">تحديث</button></div><div id="repos" class="repos"><p class="muted">سجّل الدخول ثم حمّل مستودعاتك.</p></div></aside>
-<section class="panel editor">
-<div class="editor-head"><div><strong id="repoTitle">لم يتم اختيار مستودع</strong><small id="repoMeta">اختر مستودعاً من القائمة</small></div><div class="editor-actions"><select id="branch"><option value="HEAD">HEAD</option></select><button id="loadFiles">الملفات</button><button id="newBranch">فرع جديد</button></div></div>
-<div class="editor-body"><nav id="fileTree" class="tree"><p class="muted">ستظهر الملفات هنا.</p></nav><section class="code-area"><div class="file-tab" id="fileName">لم يتم فتح ملف</div><pre id="fileContent" dir="ltr">اختر ملفاً من مستعرض الملفات لعرض محتواه.</pre><div class="editor-foot">معاينة للقراءة فقط حالياً — حفظ التعديلات سيضاف بعد بناء API للـ commits.</div></section></div>
-</section>
-</section>
-<div id="notice" role="status" class="notice"></div>
-</main>
-<script src="workspace.js"></script>
-</body></html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CodeVerse Workspace</title><link rel="stylesheet" href="workspace.css"></head><body>
+<header class="bar"><a class="brand" href="index.html">CodeVerse</a><span>مساحة العمل</span><div><input id="apiBase" value="http://127.0.0.1:8000"><button id="saveApi">حفظ الخادم</button></div></header>
+<main><section class="auth panel"><div><h1>الاتصال بحسابك</h1><p>سجّل الدخول لعرض مستودعاتك.</p></div><form id="loginForm"><input id="email" type="email" placeholder="البريد الإلكتروني" required><input id="password" type="password" placeholder="كلمة المرور" required><button>تسجيل الدخول</button><button type="button" id="logout">تسجيل الخروج</button></form></section>
+<section class="repo-area"><aside class="panel sidebar"><div class="side-head"><h2>مستودعاتي</h2><button id="loadRepos">تحديث</button></div><div id="repos" class="repos"></div></aside>
+<section class="panel editor"><div class="editor-head"><div><strong id="repoTitle">لم يتم اختيار مستودع</strong><small id="repoMeta">اختر مستودعاً</small></div><div class="editor-actions"><select id="branch"><option value="main">main</option></select><button id="loadFiles">الملفات</button><button id="newBranch">فرع جديد</button><button id="newFile">ملف جديد</button><button id="saveFile" disabled>حفظ كـ commit</button></div></div>
+<div class="editor-body"><nav id="fileTree" class="tree"></nav><section class="code-area"><div class="file-tab"><span id="fileName">لم يتم فتح ملف</span><span id="dirtyState"></span></div><input id="newFilePath" class="path-input" placeholder="مسار الملف مثل src/app.py"><textarea id="fileContent" dir="ltr" spellcheck="false" placeholder="محتوى الملف"></textarea><div class="editor-foot">ملفات نصية UTF-8 بحد أقصى 1 MB، مع إنشاء commit على الفرع المحدد.</div></section></div></section></section><div id="notice" role="status" class="notice"></div></main><script src="workspace.js"></script></body></html>

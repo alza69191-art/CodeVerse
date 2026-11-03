@@ -38,3 +38,9 @@ class RepositoryPublic(BaseModel):
     owner_id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class FileSave(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+    content: str = Field(max_length=1048576)
+    branch: str = Field(min_length=1, max_length=100)
+    message: str = Field(min_length=1, max_length=200)

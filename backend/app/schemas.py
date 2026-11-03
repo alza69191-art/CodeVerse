@@ -71,3 +71,7 @@ class PullRequestCreate(BaseModel):
 class MemberInvite(BaseModel):
     username: str = Field(min_length=3, max_length=39)
     role: str = Field(default="read", pattern=r"^(read|write)$")
+
+
+class MemberRoleUpdate(BaseModel):
+    role: str = Field(pattern=r"^(read|write)$")

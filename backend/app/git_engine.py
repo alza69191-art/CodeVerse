@@ -1,6 +1,7 @@
 import os
 import subprocess
-from pathlib import Path
+import tempfile
+from pathlib import Path, PurePosixPath
 
 from fastapi import HTTPException
 
@@ -75,9 +76,7 @@ def list_files(repo: Repository, ref: str = "HEAD") -> list[dict]:
 
 def read_file(repo: Repository, file_path: str, ref: str = "HEAD") -> dict:
     import posixpath
-    normalized = posixpath.normpath(file_path)
-    if not file_path or normalized in {".", ".."} or normalized.startswith("../") or file_path.startswith("/"):
-        raise HTTPException(status_code=400, detail="Invalid file path")
+    normalized = _validate_file_path(file_path)
     path = repository_path(repo)
     if not path.is_dir():
         raise HTTPException(status_code=404, detail="Git repository storage not found")
@@ -100,6 +99,14 @@ def read_file(repo: Repository, file_path: str, ref: str = "HEAD") -> dict:
         raise HTTPException(status_code=415, detail="Binary files cannot be previewed as text")
     return {"path": normalized, "ref": ref, "size": len(result.stdout), "content": content}
 
+def _validate_file_path(file_path: str) -> str:
+    if not file_path or "\x00" in file_path or "\\" in file_path or file_path.startswith("/"):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    parts = file_path.split("/")
+    if any(part in {"", ".", ".."} for part in parts) or len(file_path.encode("utf-8")) > 1000:
+        raise HTTPException(status_code=400, detail="Invalid file path")
+    return str(PurePosixPath(file_path))
+
 def create_branch(repo: Repository, branch_name: str, source_ref: str = "HEAD") -> str:
     path = repository_path(repo)
     if not path.is_dir():
@@ -113,3 +120,64 @@ def create_branch(repo: Repository, branch_name: str, source_ref: str = "HEAD") 
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="Git operation timed out")
     return branch_name
+
+def save_file(repo: Repository, branch: str, file_path: str, content: str, message: str, author_name: str, author_email: str) -> dict:
+    normalized = _validate_file_path(file_path)
+    data = content.encode("utf-8")
+    if len(data) > 1048576:
+        raise HTTPException(status_code=413, detail="Files are limited to 1 MB")
+    if not message.strip() or len(message) > 200:
+        raise HTTPException(status_code=400, detail="Commit message must be 1-200 characters")
+    if not branch or len(branch) > 100:
+        raise HTTPException(status_code=400, detail="Invalid branch")
+    path = repository_path(repo)
+    if not path.is_dir():
+        raise HTTPException(status_code=404, detail="Git repository storage not found")
+    env = {**os.environ, "GIT_CONFIG_NOSYSTEM": "1"}
+    try:
+        subprocess.run(["git", "--git-dir", str(path), "check-ref-format", "--branch", branch], check=True, capture_output=True, timeout=10, env=env)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        raise HTTPException(status_code=400, detail="Invalid branch name")
+    ref = "refs/heads/" + branch
+    current = subprocess.run(["git", "--git-dir", str(path), "rev-parse", "--verify", "--quiet", ref], capture_output=True, text=True, timeout=10, env=env)
+    if current.returncode not in (0, 1):
+        raise HTTPException(status_code=500, detail="Could not resolve target branch")
+    old_commit = current.stdout.strip() if current.returncode == 0 else None
+    fd, index_path = tempfile.mkstemp(prefix="codeverse-index-")
+    os.close(fd)
+    os.unlink(index_path)
+    env["GIT_INDEX_FILE"] = index_path
+
+    def run(args, input_data=None, text_mode=True):
+        try:
+            return subprocess.run(["git", "--git-dir", str(path), *args], input=input_data, check=True, capture_output=True, text=text_mode, timeout=30, env=env)
+        except subprocess.CalledProcessError:
+            raise HTTPException(status_code=409, detail="Git rejected the save; refresh the branch and retry")
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail="Git operation timed out")
+
+    try:
+        run(["read-tree", old_commit] if old_commit else ["read-tree", "--empty"])
+        blob = run(["hash-object", "-w", "--stdin"], data, False).stdout.decode().strip()
+        run(["update-index", "--add", "--cacheinfo", "100644", blob, normalized])
+        tree = run(["write-tree"]).stdout.strip()
+        identity = author_name.replace("\n", " ").replace("\r", " ")[:100] or "CodeVerse User"
+        email = author_email.replace("\n", "").replace("\r", "")[:254] or "noreply@codeverse.local"
+        commit_env = {**env, "GIT_AUTHOR_NAME": identity, "GIT_AUTHOR_EMAIL": email, "GIT_COMMITTER_NAME": identity, "GIT_COMMITTER_EMAIL": email}
+        args = ["git", "--git-dir", str(path), "commit-tree", tree]
+        if old_commit:
+            args.extend(["-p", old_commit])
+        args.extend(["-m", message.strip()])
+        created = subprocess.run(args, check=True, capture_output=True, text=True, timeout=30, env=commit_env).stdout.strip()
+        expected = old_commit or ("0" * 40)
+        subprocess.run(["git", "--git-dir", str(path), "update-ref", ref, created, expected], check=True, capture_output=True, text=True, timeout=15, env=env)
+        return {"commit": created, "branch": branch, "path": normalized}
+    except subprocess.CalledProcessError:
+        raise HTTPException(status_code=409, detail="Branch changed during save or Git rejected the update; refresh and retry")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Git operation timed out")
+    finally:
+        try:
+            os.unlink(index_path)
+        except FileNotFoundError:
+            pass

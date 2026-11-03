@@ -122,12 +122,15 @@ def create_branch(repo: Repository, branch_name: str, source_ref: str = "HEAD") 
     return branch_name
 
 def save_file(repo: Repository, branch: str, file_path: str, content: str, message: str, author_name: str, author_email: str) -> dict:
-    return save_file_bytes(repo, branch, file_path, content.encode("utf-8"), message, author_name, author_email)
+    data = content.encode("utf-8")
+    if len(data) > 1048576:
+        raise HTTPException(status_code=413, detail="Text files are limited to 1 MB")
+    return save_file_bytes(repo, branch, file_path, data, message, author_name, author_email)
 
 def save_file_bytes(repo: Repository, branch: str, file_path: str, data: bytes, message: str, author_name: str, author_email: str) -> dict:
     normalized = _validate_file_path(file_path)
-    if len(data) > 1048576:
-        raise HTTPException(status_code=413, detail="Files are limited to 1 MB")
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Uploaded files are limited to 10 MB")
     if not message.strip() or len(message) > 200:
         raise HTTPException(status_code=400, detail="Commit message must be 1-200 characters")
     if not branch or len(branch) > 100:

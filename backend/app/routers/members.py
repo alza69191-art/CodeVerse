@@ -74,3 +74,34 @@ def accept_invitation(invitation_id: int, db: Session = Depends(get_db), user: U
 @router.post("/invitations/{invitation_id}/decline")
 def decline_invitation(invitation_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return respond_invitation(invitation_id, False, db, user)
+
+
+@router.put("/repositories/{repository_id}/members/{member_id}/role")
+def update_member_role(repository_id: int, member_id: int, payload: MemberRoleUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    repo = db.get(Repository, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    if repo.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the repository owner can manage members")
+    member = db.get(RepositoryMember, member_id)
+    if member is None or member.repository_id != repository_id or member.status != "active":
+        raise HTTPException(status_code=404, detail="Active member not found")
+    member.role = payload.role
+    db.commit()
+    db.refresh(member)
+    return {"id": member.id, "role": member.role}
+
+
+@router.delete("/repositories/{repository_id}/members/{member_id}")
+def remove_member(repository_id: int, member_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    repo = db.get(Repository, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    if repo.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the repository owner can manage members")
+    member = db.get(RepositoryMember, member_id)
+    if member is None or member.repository_id != repository_id:
+        raise HTTPException(status_code=404, detail="Member not found")
+    db.delete(member)
+    db.commit()
+    return {"deleted": True}

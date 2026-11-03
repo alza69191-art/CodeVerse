@@ -2,3 +2,5 @@
 .collaboration{margin:0 4% 35px;padding:18px}.collaboration h2{margin-top:0}.collab-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.collab-columns>section{min-width:0}.collab-item{border:1px solid #2b3954;background:#0d1628;border-radius:8px;padding:12px;margin:8px 0;display:grid;gap:7px}.collab-item small{color:#9cabc4}.collab-item button{margin-left:6px;padding:7px 10px;font-size:12px}@media(max-width:700px){.collab-columns{grid-template-columns:1fr}}
 
 .team-tools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.team-tools input,.team-tools select,.collab-item select{background:#0b1324;color:#fff;border:1px solid #34415e;border-radius:8px;padding:9px}.team-tools input{min-width:210px}
+
+.diff-view{margin:12px 0;padding:14px;background:#080e1b;border:1px solid #34415e;border-radius:8px;color:#d7e1f5;white-space:pre;overflow:auto;max-height:520px;font:12px/1.6 Consolas,monospace;direction:ltr;text-align:left}

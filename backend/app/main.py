@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .database import Base, engine
 from . import models  # noqa: F401 - registers SQLAlchemy models
-from .routers import auth, collaboration, git_http, repositories, tokens
+from .routers import auth, collaboration, git_http, members, repositories, tokens
 
 
 @asynccontextmanager
@@ -28,6 +28,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tokens.router, prefix="/api/v1")
 app.include_router(repositories.router, prefix="/api/v1")
 app.include_router(collaboration.router, prefix="/api/v1")
+app.include_router(members.router, prefix="/api/v1")
 app.include_router(git_http.router)
 
 

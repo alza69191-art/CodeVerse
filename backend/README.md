@@ -9,7 +9,8 @@ FastAPI backend foundation with user accounts, repository metadata, local bare-G
 - SQLAlchemy user, repository, and token models.
 - Bare Git repository initialization.
 - Git smart HTTP CGI bridge for clone/fetch/push, with private-repository and write-token checks.
-- Owner-only repository metadata, branch-list, and commit-history endpoints.
+- Owner-only repository metadata, branch-list, commit-history, tracked-file listing, UTF-8 file preview, and branch creation endpoints.
+- Browser workspace page (`workspace.html`) for login, repository selection, file browsing, and branch creation.
 - SQLite for local development and PostgreSQL support through `DATABASE_URL`.
 
 ## Run locally
@@ -25,7 +26,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-API docs: `http://127.0.0.1:8000/docs`
+API docs: `http://127.0.0.1:8000/docs`\n\nOpen `workspace.html` to use the browser workspace. Set the API URL field to your deployed API address. Configure `CORS_ORIGINS` on the API host to include the exact origin serving the frontend (for GitHub Pages: `https://alza69191-art.github.io`). The default workspace API URL is local development only.
 
 ## Endpoints
 - `POST /api/v1/auth/register`
@@ -38,6 +39,9 @@ API docs: `http://127.0.0.1:8000/docs`
 - `GET /api/v1/repositories/mine`
 - `GET /api/v1/repositories/{repository_id}`
 - `GET /api/v1/repositories/{repository_id}/branches`
+- `POST /api/v1/repositories/{repository_id}/branches` (JSON: `name`, optional `source`)
+- `GET /api/v1/repositories/{repository_id}/files?ref=HEAD`
+- `GET /api/v1/repositories/{repository_id}/file?path=README.md&ref=HEAD` (UTF-8 preview, max 1 MB)
 - `GET /api/v1/repositories/{repository_id}/commits?limit=20`
 - `GET|POST /git/{repository_id}.git/{git_path}` (Git smart HTTP)
 - `GET /health`
@@ -59,6 +63,6 @@ This is an early development foundation, not a production-ready Git hosting serv
 - Registration creates ordinary user accounts only; there is no public admin registration or role escalation endpoint.
 - Git smart HTTP is an initial subprocess-based bridge. Before production, add strict request/response limits, concurrency controls, audit logs, hardened CGI environment, background handling for large pushes, comprehensive protocol tests, and security review.
 - Existing database deployments need a migration for the new `personal_access_tokens` table; `create_all` only creates missing tables and does not replace a migration system.
-- File browsing, branch creation API, pull requests, code review, collaboration, and scalable distributed Git storage are not implemented yet.
+- The browser editor currently previews committed files only; editing and creating commits from the UI are not implemented yet. Pull requests, code review, collaboration, and scalable distributed Git storage are also pending.
 - Before production: add Alembic migrations, rate limiting, email verification, password reset, refresh-token rotation, CSRF protections where cookie auth is used, backups, monitoring, and automated tests.
 - Provider-secret storage and encryption are intentionally not exposed until a secure server-side key-management design is added.

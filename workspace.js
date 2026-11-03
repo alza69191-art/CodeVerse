@@ -3,7 +3,7 @@ const state={token:sessionStorage.getItem("cv_access_token")||"",api:localStorag
 $("apiBase").value=state.api;let timer;
 function note(s){$("notice").textContent=s;$("notice").classList.add("show");clearTimeout(timer);timer=setTimeout(()=>$("notice").classList.remove("show"),3500)}
 function headers(){return {"Authorization":"Bearer "+state.token,"Content-Type":"application/json"}}
-async function api(path,options={}){const r=await fetch(state.api.replace(/\/$/,"")+path,{...options,headers:{...headers(),...(options.headers||{})}});if(!r.ok){let m="HTTP "+r.status;try{m=(await r.json()).detail||m}catch{}throw Error(m)}return r.json()}
+async function api(path,options={}){const r=await fetch(state.api.replace(/\/$/,"")+path,{...options,headers:{...headers(),...(options.headers||{})}});if(!r.ok){let m="HTTP "+r.status;try{const detail=(await r.json()).detail||m;m=typeof detail==="string"?detail:(detail.message||JSON.stringify(detail))}catch{}throw Error(m)}return r.json()}
 function dirty(v){state.dirty=v;$("dirtyState").textContent=v?"● تعديلات غير محفوظة":"";$("saveFile").disabled=!v}
 $("saveApi").onclick=()=>{state.api=$("apiBase").value.trim().replace(/\/$/,"");localStorage.setItem("cv_api_base",state.api);note("تم حفظ عنوان الخادم.")};
 $("loginForm").onsubmit=async e=>{e.preventDefault();try{const d=await api("/api/v1/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});state.token=d.access_token;sessionStorage.setItem("cv_access_token",state.token);note("تم تسجيل الدخول.");loadRepos()}catch(x){note(x.message)}};

@@ -77,3 +77,20 @@ def get_repository_file(
 ):
     repo = get_owned_repository(repository_id, db, user)
     return read_file(repo, path, ref)
+
+from pydantic import BaseModel, Field
+from ..git_engine import create_branch
+
+class BranchCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    source: str = Field(default="HEAD", min_length=1, max_length=200)
+
+@router.post("/{repository_id}/branches", status_code=status.HTTP_201_CREATED)
+def post_repository_branch(
+    repository_id: int,
+    payload: BranchCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    repo = get_owned_repository(repository_id, db, user)
+    return {"name": create_branch(repo, payload.name, payload.source)}

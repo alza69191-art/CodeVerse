@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from .config import settings
 from .database import Base, engine
 from . import models  # noqa: F401 - registers SQLAlchemy models
-from .routers import auth, repositories
+from .routers import auth, git_http, repositories, tokens
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -12,10 +12,12 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     yield
 
-app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="0.2.0", lifespan=lifespan)
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(tokens.router, prefix="/api/v1")
 app.include_router(repositories.router, prefix="/api/v1")
+app.include_router(git_http.router)
 
 @app.get("/health", tags=["System"])
 def health():
-    return {"status": "ok", "service": "codeverse-api", "version": "0.1.0"}
+    return {"status": "ok", "service": "codeverse-api", "version": "0.2.0"}

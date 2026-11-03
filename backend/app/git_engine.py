@@ -99,3 +99,17 @@ def read_file(repo: Repository, file_path: str, ref: str = "HEAD") -> dict:
     except UnicodeDecodeError:
         raise HTTPException(status_code=415, detail="Binary files cannot be previewed as text")
     return {"path": normalized, "ref": ref, "size": len(result.stdout), "content": content}
+
+def create_branch(repo: Repository, branch_name: str, source_ref: str = "HEAD") -> str:
+    path = repository_path(repo)
+    if not path.is_dir():
+        raise HTTPException(status_code=404, detail="Git repository storage not found")
+    try:
+        subprocess.run(["git", "--git-dir", str(path), "check-ref-format", "--branch", branch_name], check=True, capture_output=True, timeout=10, env={**os.environ, "GIT_CONFIG_NOSYSTEM": "1"})
+        _git(path, "rev-parse", "--verify", "--end-of-options", source_ref + "^{commit}")
+        _git(path, "branch", branch_name, source_ref)
+    except subprocess.CalledProcessError:
+        raise HTTPException(status_code=409, detail="Invalid branch name, missing source commit, or branch already exists")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Git operation timed out")
+    return branch_name

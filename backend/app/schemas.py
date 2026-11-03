@@ -66,3 +66,8 @@ class PullRequestCreate(BaseModel):
     body: str = Field(default="", max_length=20000)
     head_branch: str = Field(min_length=1, max_length=100)
     base_branch: str = Field(min_length=1, max_length=100)
+
+
+class MemberInvite(BaseModel):
+    username: str = Field(min_length=3, max_length=39)
+    role: str = Field(default="read", pattern=r"^(read|write)$")

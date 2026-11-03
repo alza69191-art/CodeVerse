@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./codeverse.db"
     jwt_secret_key: str = "development-only-change-me"
     jwt_expire_minutes: int = 60
+    repository_storage_path: str = "./data/git"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..git_engine import initialize_repository, list_branches, list_commits
+from ..git_engine import initialize_repository, list_branches, list_commits, list_files, read_file
 from ..models import Repository, User
 from ..schemas import RepositoryCreate, RepositoryPublic
 
@@ -56,3 +56,24 @@ def get_repository_commits(
 ):
     repo = get_owned_repository(repository_id, db, user)
     return list_commits(repo, limit)
+
+@router.get("/{repository_id}/files")
+def get_repository_files(
+    repository_id: int,
+    ref: str = Query(default="HEAD", min_length=1, max_length=200),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    repo = get_owned_repository(repository_id, db, user)
+    return list_files(repo, ref)
+
+@router.get("/{repository_id}/file")
+def get_repository_file(
+    repository_id: int,
+    path: str = Query(min_length=1, max_length=1000),
+    ref: str = Query(default="HEAD", min_length=1, max_length=200),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    repo = get_owned_repository(repository_id, db, user)
+    return read_file(repo, path, ref)

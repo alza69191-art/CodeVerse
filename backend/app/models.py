@@ -95,3 +95,13 @@ class RepositoryMember(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class PullRequestMerge(Base):
+    __tablename__ = "pull_request_merges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    pull_request_id: Mapped[int] = mapped_column(ForeignKey("pull_requests.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    merge_commit: Mapped[str] = mapped_column(String(40), nullable=False)
+    merged_by_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    merged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

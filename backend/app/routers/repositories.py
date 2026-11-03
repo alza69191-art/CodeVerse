@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..git_engine import initialize_repository, list_branches, list_commits, list_files, read_file, save_file
+from ..git_engine import initialize_repository, list_branches, list_commits, list_files, read_file, save_file, save_file_bytes
 from ..models import Repository, User
-from ..schemas import FileSave, RepositoryCreate, RepositoryPublic
+from ..schemas import FileSave, FileUpload, RepositoryCreate, RepositoryPublic
 
 router = APIRouter(prefix="/repositories", tags=["Repositories"])
 
@@ -99,3 +99,17 @@ def post_repository_branch(
 def put_repository_file(repository_id: int, payload: FileSave, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     repo = get_owned_repository(repository_id, db, user)
     return save_file(repo, payload.branch, payload.path, payload.content, payload.message, user.username, user.email)
+
+import base64
+import binascii
+
+@router.post("/{repository_id}/upload")
+def upload_repository_file(repository_id: int, payload: FileUpload, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    repo = get_owned_repository(repository_id, db, user)
+    try:
+        data = base64.b64decode(payload.content_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid base64 file content")
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Each uploaded file is limited to 10 MB")
+    return save_file_bytes(repo, payload.branch, payload.path, data, payload.message, user.username, user.email)

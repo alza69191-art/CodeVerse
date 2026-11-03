@@ -50,3 +50,19 @@ class FileUpload(BaseModel):
     content_base64: str = Field(min_length=1, max_length=14000000)
     branch: str = Field(min_length=1, max_length=100)
     message: str = Field(min_length=1, max_length=200)
+
+
+class IssueCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(default="", max_length=20000)
+
+
+class IssueCommentCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+
+
+class PullRequestCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(default="", max_length=20000)
+    head_branch: str = Field(min_length=1, max_length=100)
+    base_branch: str = Field(min_length=1, max_length=100)

@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..git_engine import initialize_repository, list_branches, list_commits, list_files, read_file
+from ..git_engine import initialize_repository, list_branches, list_commits, list_files, read_file, save_file
 from ..models import Repository, User
-from ..schemas import RepositoryCreate, RepositoryPublic
+from ..schemas import FileSave, RepositoryCreate, RepositoryPublic
 
 router = APIRouter(prefix="/repositories", tags=["Repositories"])
 
@@ -94,3 +94,8 @@ def post_repository_branch(
 ):
     repo = get_owned_repository(repository_id, db, user)
     return {"name": create_branch(repo, payload.name, payload.source)}
+
+@router.put("/{repository_id}/file")
+def put_repository_file(repository_id: int, payload: FileSave, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    repo = get_owned_repository(repository_id, db, user)
+    return save_file(repo, payload.branch, payload.path, payload.content, payload.message, user.username, user.email)

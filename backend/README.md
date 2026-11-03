@@ -52,3 +52,18 @@ All collaboration routes currently require an authenticated repository owner. Th
 - `POST /api/v1/repositories/{id}/pull-requests/{pull_request_id}/close`
 
 Pull Requests validate that both branches exist and are different. They are tracking records only: diff review, approvals, merge execution, conflict resolution, and branch protection are not implemented. New SQLAlchemy tables are created at application startup for fresh or existing databases; use Alembic migrations for production schema evolution.
+
+
+## Repository teams and invitations
+
+Repository owners can invite existing CodeVerse accounts by username. Invitees see pending invitations in their workspace and can accept or decline.
+
+- `GET /api/v1/repositories/{id}/members` (owner)
+- `POST /api/v1/repositories/{id}/members/invite` with `username` and `role` (`read` or `write`)
+- `PUT /api/v1/repositories/{id}/members/{member_id}/role` (owner)
+- `DELETE /api/v1/repositories/{id}/members/{member_id}` (owner)
+- `GET /api/v1/users/me/invitations`
+- `POST /api/v1/invitations/{invitation_id}/accept`
+- `POST /api/v1/invitations/{invitation_id}/decline`
+
+Active `read` members can inspect repository files, branches, commits, issues, and pull requests. Active `write` members can also create branches, save/upload files, create and comment on issues, close issues, and open/close pull requests. Only the owner can invite, change roles, or remove members. Invitations are for existing registered usernames; email delivery is not configured.

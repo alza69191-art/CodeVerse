@@ -13,3 +13,4 @@ venv/
 .DS_Store
 backend/*.db
 backend/*.sqlite3
+backend/data/

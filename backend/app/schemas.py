@@ -1,0 +1,40 @@
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    username: str = Field(min_length=3, max_length=39, pattern=r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$")
+    password: str = Field(min_length=12, max_length=128)
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+class UserPublic(BaseModel):
+    id: int
+    email: EmailStr
+    username: str
+    role: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+class RepositoryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    slug: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
+    description: str = Field(default="", max_length=2000)
+    is_private: bool = True
+
+class RepositoryPublic(BaseModel):
+    id: int
+    name: str
+    slug: str
+    description: str
+    is_private: bool
+    default_branch: str
+    owner_id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)

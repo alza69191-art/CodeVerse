@@ -81,10 +81,10 @@ def read_file(repo: Repository, file_path: str, ref: str = "HEAD") -> dict:
     path = repository_path(repo)
     if not path.is_dir():
         raise HTTPException(status_code=404, detail="Git repository storage not found")
-    _git(path, "rev-parse", "--verify", "--end-of-options", ref + "^{commit}")
+    commit = _git(path, "rev-parse", "--verify", "--end-of-options", ref + "^{commit}").strip()
     try:
         result = subprocess.run(
-            ["git", "--git-dir", str(path), "show", ref + ":" + normalized],
+            ["git", "--git-dir", str(path), "show", commit + ":" + normalized],
             capture_output=True, timeout=20,
             env={**os.environ, "GIT_CONFIG_NOSYSTEM": "1"},
         )
@@ -106,8 +106,8 @@ def create_branch(repo: Repository, branch_name: str, source_ref: str = "HEAD") 
         raise HTTPException(status_code=404, detail="Git repository storage not found")
     try:
         subprocess.run(["git", "--git-dir", str(path), "check-ref-format", "--branch", branch_name], check=True, capture_output=True, timeout=10, env={**os.environ, "GIT_CONFIG_NOSYSTEM": "1"})
-        _git(path, "rev-parse", "--verify", "--end-of-options", source_ref + "^{commit}")
-        _git(path, "branch", branch_name, source_ref)
+        commit = _git(path, "rev-parse", "--verify", "--end-of-options", source_ref + "^{commit}").strip()
+        _git(path, "branch", branch_name, commit)
     except subprocess.CalledProcessError:
         raise HTTPException(status_code=409, detail="Invalid branch name, missing source commit, or branch already exists")
     except subprocess.TimeoutExpired:

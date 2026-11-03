@@ -44,3 +44,9 @@ class FileSave(BaseModel):
     content: str = Field(max_length=1048576)
     branch: str = Field(min_length=1, max_length=100)
     message: str = Field(min_length=1, max_length=200)
+
+class FileUpload(BaseModel):
+    path: str = Field(min_length=1, max_length=1000)
+    content_base64: str = Field(min_length=1, max_length=14000000)
+    branch: str = Field(min_length=1, max_length=100)
+    message: str = Field(min_length=1, max_length=200)

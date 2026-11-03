@@ -1,68 +1,38 @@
 # CodeVerse API
 
-FastAPI backend foundation with user accounts, repository metadata, local bare-Git storage, personal access tokens, and an initial Git smart-HTTP transport.
+FastAPI backend with user accounts, bare Git storage, personal access tokens, Git smart HTTP, and a browser code workspace.
 
 ## Included
-- Registration, login, and current-user endpoint.
-- Argon2 password hashing and JWT bearer authentication.
-- Personal access token creation, listing, and revocation. Raw tokens are shown only once; only SHA-256 hashes are stored.
-- SQLAlchemy user, repository, and token models.
-- Bare Git repository initialization.
-- Git smart HTTP CGI bridge for clone/fetch/push, with private-repository and write-token checks.
-- Owner-only repository metadata, branch-list, commit-history, tracked-file listing, UTF-8 file preview, and branch creation endpoints.
-- Browser workspace page (`workspace.html`) for login, repository selection, file browsing, and branch creation.
-- SQLite for local development and PostgreSQL support through `DATABASE_URL`.
+- Registration, login, current-user endpoint, Argon2 password hashing, and JWT authentication.
+- Personal access tokens stored as SHA-256 hashes.
+- Bare Git repositories, branch management, commit history, file listing, UTF-8 preview, and authenticated file-save commits.
+- SQLite for development and PostgreSQL through `DATABASE_URL`.
 
 ## Run locally
-
-Install Git (including `git-http-backend`) on the API host, then from the `backend` directory:
+Install Git on the API host, then from `backend`:
 
 ```bash
 python -m venv .venv
-# Windows: .venv\\Scripts\\activate
+# Windows: .venv\Scripts\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 # Copy .env.example to .env and set a strong JWT_SECRET_KEY.
 uvicorn app.main:app --reload
 ```
 
-API docs: `http://127.0.0.1:8000/docs`\n\nOpen `workspace.html` to use the browser workspace. Set the API URL field to your deployed API address. Configure `CORS_ORIGINS` on the API host to include the exact origin serving the frontend (for GitHub Pages: `https://alza69191-art.github.io`). The default workspace API URL is local development only.
+API docs: `http://127.0.0.1:8000/docs`. Open `workspace.html` and set the API URL. Configure `CORS_ORIGINS` to include the exact frontend origin.
 
 ## Endpoints
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /api/v1/auth/me` (Bearer token required)
-- `POST /api/v1/tokens` (create a personal access token)
-- `GET /api/v1/tokens` (list token metadata)
-- `DELETE /api/v1/tokens/{token_id}` (revoke token)
-- `POST /api/v1/repositories` (creates a bare Git repository)
-- `GET /api/v1/repositories/mine`
-- `GET /api/v1/repositories/{repository_id}`
-- `GET /api/v1/repositories/{repository_id}/branches`
-- `POST /api/v1/repositories/{repository_id}/branches` (JSON: `name`, optional `source`)
-- `GET /api/v1/repositories/{repository_id}/files?ref=HEAD`
-- `GET /api/v1/repositories/{repository_id}/file?path=README.md&ref=HEAD` (UTF-8 preview, max 1 MB)
-- `GET /api/v1/repositories/{repository_id}/commits?limit=20`
-- `GET|POST /git/{repository_id}.git/{git_path}` (Git smart HTTP)
-- `GET /health`
+- `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `GET /api/v1/auth/me`
+- `POST /api/v1/tokens`, `GET /api/v1/tokens`, `DELETE /api/v1/tokens/{token_id}`
+- `POST /api/v1/repositories`, `GET /api/v1/repositories/mine`
+- `GET /api/v1/repositories/{id}/branches`, `POST /api/v1/repositories/{id}/branches`
+- `GET /api/v1/repositories/{id}/files`, `GET /api/v1/repositories/{id}/file`
+- `PUT /api/v1/repositories/{id}/file` with JSON `path`, `content`, `branch`, `message`; creates a Git commit.
+- `GET /api/v1/repositories/{id}/commits`, Git smart HTTP, and `GET /health`.
 
-## Git client setup
-Create a personal access token in the account settings/API, enable read for clone/fetch, and enable write for push. Use the account username as the HTTP Basic username and the one-time token as its password. Do not put tokens in remote URLs or commit them to source files; let Git Credential Manager store credentials securely.
-
-Example remote:
-`https://YOUR-CODEVERSE-HOST/git/REPOSITORY_ID.git`
-
-## Git storage
-Bare repositories are stored under `REPOSITORY_STORAGE_PATH/<owner_id>/<repository_id>.git`. Use a persistent disk or volume for this directory in deployment. The filesystem path is generated from numeric database IDs, not user-controlled repository names.
+## File-save behavior
+The API checks repository ownership, validates relative paths, limits UTF-8 text files to 1 MB, writes blob/tree objects using Git plumbing, creates a commit, then updates the branch with compare-and-swap using Git update-ref. Concurrent updates are rejected; refresh and retry. Files are saved as regular files (mode 100644). Binary uploads and deletion are not implemented.
 
 ## Security and production status
-This is an early development foundation, not a production-ready Git hosting service.
-- Serve Git endpoints over HTTPS only. Never commit `.env`, JWT secrets, provider API keys, or encryption keys.
-- Set a strong random `JWT_SECRET_KEY`, PostgreSQL `DATABASE_URL`, and persistent `REPOSITORY_STORAGE_PATH` in deployment.
-- Personal access tokens are stored as SHA-256 hashes and cannot be retrieved after creation. Revoke and replace a token if it is lost.
-- Registration creates ordinary user accounts only; there is no public admin registration or role escalation endpoint.
-- Git smart HTTP is an initial subprocess-based bridge. Before production, add strict request/response limits, concurrency controls, audit logs, hardened CGI environment, background handling for large pushes, comprehensive protocol tests, and security review.
-- Existing database deployments need a migration for the new `personal_access_tokens` table; `create_all` only creates missing tables and does not replace a migration system.
-- The browser editor currently previews committed files only; editing and creating commits from the UI are not implemented yet. Pull requests, code review, collaboration, and scalable distributed Git storage are also pending.
-- Before production: add Alembic migrations, rate limiting, email verification, password reset, refresh-token rotation, CSRF protections where cookie auth is used, backups, monitoring, and automated tests.
-- Provider-secret storage and encryption are intentionally not exposed until a secure server-side key-management design is added.
+This is an early development foundation, not production-ready. Use HTTPS, persistent Git storage, strong JWT secrets, database migrations, rate limits, audit logs, request limits, backups, monitoring, automated protocol tests, and a security review before production. Never commit `.env` or provider API keys. Provider-secret storage is not implemented.

@@ -36,3 +36,19 @@ The API checks repository ownership, validates relative paths, limits UTF-8 text
 
 ## Security and production status
 This is an early development foundation, not production-ready. Use HTTPS, persistent Git storage, strong JWT secrets, database migrations, rate limits, audit logs, request limits, backups, monitoring, automated protocol tests, and a security review before production. Never commit `.env` or provider API keys. Provider-secret storage is not implemented.
+
+
+## Collaboration: Issues and Pull Requests
+
+All collaboration routes currently require an authenticated repository owner. This first version is owner-only; team membership and collaborator permissions are not implemented.
+
+- `GET /api/v1/repositories/{id}/issues`
+- `POST /api/v1/repositories/{id}/issues` with `title` and optional `body`
+- `GET /api/v1/repositories/{id}/issues/{issue_id}` returns issue and comments
+- `POST /api/v1/repositories/{id}/issues/{issue_id}/comments` with `body`
+- `POST /api/v1/repositories/{id}/issues/{issue_id}/close`
+- `GET /api/v1/repositories/{id}/pull-requests`
+- `POST /api/v1/repositories/{id}/pull-requests` with `title`, `body`, `head_branch`, and `base_branch`
+- `POST /api/v1/repositories/{id}/pull-requests/{pull_request_id}/close`
+
+Pull Requests validate that both branches exist and are different. They are tracking records only: diff review, approvals, merge execution, conflict resolution, and branch protection are not implemented. New SQLAlchemy tables are created at application startup for fresh or existing databases; use Alembic migrations for production schema evolution.

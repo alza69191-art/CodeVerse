@@ -13,9 +13,32 @@ router = APIRouter(prefix="/repositories", tags=["Repositories"])
 
 def get_owned_repository(repository_id: int, db: Session, user: User) -> Repository:
     repo = db.get(Repository, repository_id)
-    if repo is None or repo.owner_id != user.id:
+    if repo is None:
         raise HTTPException(status_code=404, detail="Repository not found")
+    if repo.owner_id != user.id:
+        member = db.scalar(select(RepositoryMember).where(
+            RepositoryMember.repository_id == repository_id,
+            RepositoryMember.user_id == user.id,
+            RepositoryMember.status == "active",
+        ))
+        if member is None:
+            raise HTTPException(status_code=404, detail="Repository not found")
     return repo
+
+
+def require_write_access(repository_id: int, db: Session, user: User) -> None:
+    repo = db.get(Repository, repository_id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    if repo.owner_id == user.id:
+        return
+    member = db.scalar(select(RepositoryMember).where(
+        RepositoryMember.repository_id == repository_id,
+        RepositoryMember.user_id == user.id,
+        RepositoryMember.status == "active",
+    ))
+    if member is None or member.role not in ("write", "admin"):
+        raise HTTPException(status_code=403, detail="Write access is required")
 
 @router.post("", response_model=RepositoryPublic, status_code=status.HTTP_201_CREATED)
 def create_repository(payload: RepositoryCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -36,7 +59,11 @@ def create_repository(payload: RepositoryCreate, db: Session = Depends(get_db), 
 
 @router.get("/mine", response_model=list[RepositoryPublic])
 def list_my_repositories(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return list(db.scalars(select(Repository).where(Repository.owner_id == user.id).order_by(Repository.created_at.desc())))
+    stmt = select(Repository).outerjoin(
+        RepositoryMember,
+        (RepositoryMember.repository_id == Repository.id) & (RepositoryMember.user_id == user.id) & (RepositoryMember.status == "active"),
+    ).where((Repository.owner_id == user.id) | (RepositoryMember.id.is_not(None))).order_by(Repository.created_at.desc())
+    return list(db.scalars(stmt).unique())
 
 @router.get("/{repository_id}", response_model=RepositoryPublic)
 def get_repository(repository_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
@@ -93,11 +120,13 @@ def post_repository_branch(
     user: User = Depends(get_current_user),
 ):
     repo = get_owned_repository(repository_id, db, user)
+    require_write_access(repository_id, db, user)
     return {"name": create_branch(repo, payload.name, payload.source)}
 
 @router.put("/{repository_id}/file")
 def put_repository_file(repository_id: int, payload: FileSave, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     repo = get_owned_repository(repository_id, db, user)
+    require_write_access(repository_id, db, user)
     return save_file(repo, payload.branch, payload.path, payload.content, payload.message, user.username, user.email)
 
 import base64
@@ -106,6 +135,7 @@ import binascii
 @router.post("/{repository_id}/upload")
 def upload_repository_file(repository_id: int, payload: FileUpload, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     repo = get_owned_repository(repository_id, db, user)
+    require_write_access(repository_id, db, user)
     try:
         data = base64.b64decode(payload.content_base64, validate=True)
     except (binascii.Error, ValueError):

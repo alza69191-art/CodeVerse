@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..dependencies import get_current_user
 from ..git_engine import list_branches
-from ..models import Issue, IssueComment, PullRequest, Repository, User
+from ..models import Issue, IssueComment, PullRequest, Repository, RepositoryMember, User
 from ..schemas import IssueCreate, IssueCommentCreate, PullRequestCreate
 
 router = APIRouter(prefix="/repositories/{repository_id}", tags=["Collaboration"])

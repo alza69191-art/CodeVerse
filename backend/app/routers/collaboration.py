@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies import get_current_user
-from ..git_engine import list_branches
-from ..models import Issue, IssueComment, PullRequest, Repository, RepositoryMember, User
+from ..git_engine import compare_branches, list_branches, merge_branches
+from ..models import Issue, IssueComment, PullRequest, PullRequestMerge, Repository, RepositoryMember, User
 from ..schemas import IssueCreate, IssueCommentCreate, PullRequestCreate
 
 router = APIRouter(prefix="/repositories/{repository_id}", tags=["Collaboration"])
@@ -131,3 +131,38 @@ def close_pull_request(repository_id: int, pull_request_id: int, db: Session = D
     db.commit()
     db.refresh(pr)
     return pr
+
+
+@router.get("/pull-requests/{pull_request_id}/diff")
+def get_pull_request_diff(repository_id: int, pull_request_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    repo = owned_repo(repository_id, db, user)
+    pr = db.get(PullRequest, pull_request_id)
+    if pr is None or pr.repository_id != repository_id:
+        raise HTTPException(status_code=404, detail="Pull request not found")
+    result = compare_branches(repo, pr.base_branch, pr.head_branch)
+    result["pull_request"] = {"id": pr.id, "title": pr.title, "state": pr.state}
+    return result
+
+
+@router.post("/pull-requests/{pull_request_id}/merge")
+def merge_pull_request(repository_id: int, pull_request_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    repo = owned_repo(repository_id, db, user)
+    require_collab_write(repository_id, db, user)
+    pr = db.get(PullRequest, pull_request_id)
+    if pr is None or pr.repository_id != repository_id:
+        raise HTTPException(status_code=404, detail="Pull request not found")
+    if pr.state != "open":
+        raise HTTPException(status_code=409, detail="Only open pull requests can be merged")
+    if db.scalar(select(PullRequestMerge).where(PullRequestMerge.pull_request_id == pr.id)) is not None:
+        raise HTTPException(status_code=409, detail="Pull request already has a merge record")
+    merged = merge_branches(
+        repo, pr.base_branch, pr.head_branch,
+        f"Merge pull request #{pr.id}: {pr.title}",
+        user.username, user.email,
+    )
+    record = PullRequestMerge(pull_request_id=pr.id, merge_commit=merged["merge_commit"], merged_by_id=user.id)
+    pr.state = "merged"
+    db.add(record)
+    db.commit()
+    db.refresh(pr)
+    return {"pull_request": pr, **merged, "state": "merged"}

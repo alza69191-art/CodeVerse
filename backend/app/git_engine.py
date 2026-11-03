@@ -191,3 +191,95 @@ def save_file_bytes(repo: Repository, branch: str, file_path: str, data: bytes, 
             os.unlink(index_path)
         except FileNotFoundError:
             pass
+
+
+def _branch_commit(path: Path, branch: str) -> str:
+    if not branch or len(branch) > 100:
+        raise HTTPException(status_code=400, detail="Invalid branch name")
+    env = {**os.environ, "GIT_CONFIG_NOSYSTEM": "1"}
+    try:
+        subprocess.run(["git", "--git-dir", str(path), "check-ref-format", "--branch", branch], check=True, capture_output=True, timeout=10, env=env)
+        result = subprocess.run(["git", "--git-dir", str(path), "rev-parse", "--verify", "--end-of-options", f"refs/heads/{branch}^{{commit}}"], check=True, capture_output=True, text=True, timeout=10, env=env)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        raise HTTPException(status_code=404, detail=f"Branch not found: {branch}")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Git operation timed out")
+
+
+def compare_branches(repo: Repository, base_branch: str, head_branch: str) -> dict:
+    path = repository_path(repo)
+    if not path.is_dir():
+        raise HTTPException(status_code=404, detail="Git repository storage not found")
+    base = _branch_commit(path, base_branch)
+    head = _branch_commit(path, head_branch)
+    env = {**os.environ, "GIT_CONFIG_NOSYSTEM": "1"}
+    try:
+        stat = subprocess.run(
+            ["git", "--git-dir", str(path), "diff", "--no-ext-diff", "--no-color", "--stat", f"{base}...{head}", "--"],
+            capture_output=True, text=True, timeout=20, env=env,
+        )
+        patch = subprocess.run(
+            ["git", "--git-dir", str(path), "diff", "--no-ext-diff", "--no-color", "--find-renames", f"{base}...{head}", "--"],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Diff calculation timed out")
+    if stat.returncode or patch.returncode:
+        raise HTTPException(status_code=409, detail="Could not compare branches")
+    full_patch = patch.stdout
+    truncated = len(full_patch.encode("utf-8")) > 250000
+    if truncated:
+        full_patch = full_patch[:250000] + "\\n\\n[Diff truncated at 250 KB]"
+    return {
+        "base_branch": base_branch,
+        "head_branch": head_branch,
+        "base_commit": base,
+        "head_commit": head,
+        "stat": stat.stdout,
+        "diff": full_patch,
+        "truncated": truncated,
+    }
+
+
+def merge_branches(repo: Repository, base_branch: str, head_branch: str, message: str, author_name: str, author_email: str) -> dict:
+    if base_branch == head_branch:
+        raise HTTPException(status_code=400, detail="Cannot merge a branch into itself")
+    if not message.strip() or len(message) > 200:
+        raise HTTPException(status_code=400, detail="Merge message must be 1-200 characters")
+    path = repository_path(repo)
+    if not path.is_dir():
+        raise HTTPException(status_code=404, detail="Git repository storage not found")
+    base = _branch_commit(path, base_branch)
+    head = _branch_commit(path, head_branch)
+    env = {**os.environ, "GIT_CONFIG_NOSYSTEM": "1"}
+    try:
+        merge_tree = subprocess.run(
+            ["git", "--git-dir", str(path), "merge-tree", "--write-tree", base, head],
+            capture_output=True, text=True, timeout=60, env=env,
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Merge calculation timed out")
+    if merge_tree.returncode != 0:
+        details = (merge_tree.stdout + merge_tree.stderr).strip()[:12000]
+        raise HTTPException(status_code=409, detail={"message": "Merge conflicts detected; target branch was not changed", "details": details})
+    tree = merge_tree.stdout.splitlines()[0].strip() if merge_tree.stdout.splitlines() else ""
+    if len(tree) != 40 or any(ch not in "0123456789abcdef" for ch in tree):
+        raise HTTPException(status_code=502, detail="Git returned an invalid merge tree")
+    identity = author_name.replace("\\n", " ").replace("\\r", " ")[:100] or "CodeVerse User"
+    email = author_email.replace("\\n", "").replace("\\r", "")[:254] or "noreply@codeverse.local"
+    commit_env = {**env, "GIT_AUTHOR_NAME": identity, "GIT_AUTHOR_EMAIL": email, "GIT_COMMITTER_NAME": identity, "GIT_COMMITTER_EMAIL": email}
+    try:
+        created = subprocess.run(
+            ["git", "--git-dir", str(path), "commit-tree", tree, "-p", base, "-p", head, "-m", message.strip()],
+            check=True, capture_output=True, text=True, timeout=30, env=commit_env,
+        ).stdout.strip()
+        subprocess.run(
+            ["git", "--git-dir", str(path), "update-ref", f"refs/heads/{base_branch}", created, base],
+            check=True, capture_output=True, text=True, timeout=15, env=env,
+        )
+    except subprocess.CalledProcessError:
+        raise HTTPException(status_code=409, detail="Target branch changed during merge; refresh and retry")
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Git merge update timed out")
+    return {"merge_commit": created, "base_branch": base_branch, "head_branch": head_branch}

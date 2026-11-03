@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 
 from ..config import settings
 from ..database import get_db
-from ..models import PersonalAccessToken, Repository, User
+from ..models import PersonalAccessToken, Repository, RepositoryMember, User
 
 router = APIRouter(tags=["Git HTTP"])
 
@@ -114,14 +114,21 @@ async def git_smart_http(repository_id: int, git_path: str, request: Request, db
     auth = authenticate_basic(request, db)
     service = request.query_params.get("service", "")
     is_write = service == "git-receive-pack" or git_path.endswith("git-receive-pack")
+    member = None
+    if auth is not None and auth[0].id != repo.owner_id:
+        member = db.scalar(select(RepositoryMember).where(
+            RepositoryMember.repository_id == repository_id,
+            RepositoryMember.user_id == auth[0].id,
+            RepositoryMember.status == "active",
+        ))
     if is_write:
-        if auth is None or auth[0].id != repo.owner_id or not auth[1].can_write:
-            raise HTTPException(status_code=401, detail="A write-enabled personal access token is required")
+        allowed_role = auth is not None and (auth[0].id == repo.owner_id or (member is not None and member.role in ("write", "admin")))
+        if not allowed_role or not auth[1].can_write:
+            raise HTTPException(status_code=403, detail="A write-enabled token and repository write access are required")
     elif repo.is_private:
-        if auth is None or auth[0].id != repo.owner_id or not auth[1].can_read:
-            raise HTTPException(status_code=401, detail="A read-enabled personal access token is required")
-    elif auth is not None and auth[0].id != repo.owner_id and is_write:
-        raise HTTPException(status_code=403, detail="You cannot write to this repository")
+        allowed_read = auth is not None and (auth[0].id == repo.owner_id or member is not None)
+        if not allowed_read or not auth[1].can_read:
+            raise HTTPException(status_code=401, detail="A read-enabled token and repository access are required")
 
     if request.method == "POST" and git_path not in {"git-upload-pack", "git-receive-pack"}:
         raise HTTPException(status_code=404, detail="Unsupported Git service")

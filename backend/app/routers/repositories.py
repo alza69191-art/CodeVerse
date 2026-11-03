@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..dependencies import get_current_user
 from ..git_engine import initialize_repository, list_branches, list_commits, list_files, read_file, save_file, save_file_bytes
-from ..models import Repository, User
+from ..models import Repository, RepositoryMember, User
 from ..schemas import FileSave, FileUpload, RepositoryCreate, RepositoryPublic
 
 router = APIRouter(prefix="/repositories", tags=["Repositories"])
